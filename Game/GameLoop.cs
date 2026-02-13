@@ -21,34 +21,36 @@ namespace Piramura.LookOrNotLook.Game
     /// </summary>
     public sealed class GameLoop : IStartable, ITickable
     {
+        // Injected services（依存）
         private readonly SeeingLogic seeingLogic;
         private readonly ItemSpawner itemSpawner;
         private readonly ItemLayout layout;
         private readonly GameManager config; // itemPool / refreshRadius / spawnAllOnStart を持つ薄い設定役
-
-        private readonly List<int> freeIndices = new();
-        private readonly List<int> aroundBuffer = new();
-
-        private GameObject[] slotObjects;
-
-        private ItemProgress currentProgress;
-        private CollectableItem currentCollectable;
-        private ItemReaction currentReaction;
         private readonly IScoreService score;
         private readonly IAchievementService achievement;
         private readonly ITimerService timer;
-        private bool finished;
-        private readonly ISfxService sfx;
-        private readonly SemaphoreSlim collectLock = new(1, 1);
         private readonly IGameSession session;
-        private CancellationToken GameToken => session.Token;
+        private readonly ISfxService sfx;
         private readonly IOverheatService overheat;
         private readonly ComboPopupSpawner comboPopup;
         private readonly IGameStateService state;
         private readonly IBoardCleaner boardCleaner;
         private readonly BoardPlacerToPlayer boardPlacerToPlayer;
-        private readonly Transform boardRoot;
-        private readonly Transform uiRoot;
+
+        //Board state（slot/freeIndices/aroundBuffer）
+        private GameObject[] slotObjects;
+        private readonly List<int> freeIndices = new();
+        private readonly List<int> aroundBuffer = new();
+
+        //Focus cache（currentProgress等）
+        private ItemProgress currentProgress;
+        private CollectableItem currentCollectable;
+        private ItemReaction currentReaction;
+
+        //Concurrency / session safety（collectLock / token / finished）
+        private bool finished;
+        private readonly SemaphoreSlim collectLock = new(1, 1);        
+        private CancellationToken GameToken => session.Token;
 
 
         public GameLoop(
@@ -113,10 +115,7 @@ namespace Piramura.LookOrNotLook.Game
             ClearFocus();
             boardCleaner.ClearAll();         // 盤面を消す（方針としてここに統一）
 
-            // 盤：遠め
-            boardPlacerToPlayer.PlaceBoardAndUiInFrontOfPlayer();
-
-            // UI：近め（プレイヤーの胸〜顔の前）
+            // 盤とUIをプレイヤー正面に配置（必要なら Place 側で距離/高さを調整）
             boardPlacerToPlayer.PlaceBoardAndUiInFrontOfPlayer();
 
             ResetGame();                     // 盤面・スコア・新セッション開始・再生成
@@ -242,7 +241,7 @@ namespace Piramura.LookOrNotLook.Game
             return speed;
         }
 
-
+        //OnItemCompleted 本体（ローカル関数削除＋分割呼び出しに置換）
         private async UniTask OnItemCompleted(GameObject item)
         {
             var token = GameToken;
@@ -250,7 +249,6 @@ namespace Piramura.LookOrNotLook.Game
 
             if (item == null) return;
 
-            // 参照は先に取る（Destroyされてもnullに近い挙動になる）
             var gazeTarget = item.GetComponent<Piramura.LookOrNotLook.Gaze.GazeTarget>();
             var cols = item.GetComponentsInChildren<Collider>(true);
 
@@ -258,91 +256,32 @@ namespace Piramura.LookOrNotLook.Game
             bool committed = false;
             bool interactivityDisabled = false;
 
-            void DisableInteractivity()
-            {
-                if (interactivityDisabled) return;
-                if (gazeTarget != null) gazeTarget.enabled = false;
-                for (int i = 0; i < cols.Length; i++) if (cols[i] != null) cols[i].enabled = false;
-                interactivityDisabled = true;
-            }
-
-            void RestoreInteractivity()
-            {
-                if (!interactivityDisabled) return;
-                if (gazeTarget != null) gazeTarget.enabled = true;
-                for (int i = 0; i < cols.Length; i++) if (cols[i] != null) cols[i].enabled = true;
-                interactivityDisabled = false;
-            }
-
             try
             {
-                // 直列化
                 await collectLock.WaitAsync(token);
                 lockAcquired = true;
 
-                // ここでまとめてガード（仕様：時間切れは無効）
-                if (finished || token.IsCancellationRequested || timer.IsTimeUp) return;
-                if (ver != session.Version) return;
+                // ガード（1回目）
+                if (!IsCollectStillValid(token, ver)) return;
 
-                // ここから “確定へ進む意思” があるので、インタラクション無効化
-                DisableInteractivity();
+                // “確定へ進む意思”があるのでインタラクション無効化
+                DisableInteractivity(gazeTarget, cols, ref interactivityDisabled);
 
                 // 演出
-                var reaction = item.GetComponent<ItemReaction>();
-                if (reaction != null)
-                {
-                    await reaction.CompleteAsync().AttachExternalCancellation(token);
-                }
+                await PlayCompletionReactionAsync(item, token);
 
-                // 演出後、確定前にもう一度ガード
-                if (finished || token.IsCancellationRequested || timer.IsTimeUp) return;
-                if (ver != session.Version) return;
+                // ガード（2回目）
+                if (!IsCollectStillValid(token, ver)) return;
 
-                // --- ここから確定 ---
-                var slot = item.GetComponent<ItemSlot>();
-                if (slot == null) return;
+                // 確定
+                if (!TryCommitCollect(item, out int centerIndex, out ItemDefinition def, out int delta, out bool isPenalty))
+                    return;
 
-                int centerIndex = slot.Index;
+                // 後処理（スコア/SE/overheat/ポップ）
+                PostCommit(def, delta, isPenalty, item.transform.position);
 
-                bool isPenalty = false;
-                int delta = 0;
-                ItemDefinition def = null;
-
-                var collectable = item.GetComponent<CollectableItem>();
-                if (collectable != null && collectable.Definition != null)
-                {
-                    def = collectable.Definition;
-                    int gain = def.Value;
-                    int penalty = def.PenaltyValue > 0 ? def.PenaltyValue : def.Value;
-                    delta = def.IsForbidden ? -penalty : gain;
-                    isPenalty = def.IsForbidden;
-                }
-
-                slotObjects[centerIndex] = null;
-                if (!freeIndices.Contains(centerIndex)) freeIndices.Add(centerIndex);
-
-                RefreshAround(centerIndex);
-
-                if (def != null)
-                {
-                    score.Add(delta);
-                    achievement.OnCollect(def, delta);
-                }
-
-                // SE
-                if (isPenalty) sfx.PlayPenalty();
-                else sfx.PlayCollect();
-
-                // Overheat更新（スコア確定後、再スポーン前）
-                overheat?.OnCollect(isPenalty);
-                Debug.Log($"[Overheat] combo={overheat.Combo} p={overheat.ForbiddenChance01:P0}");
-                if (!isPenalty && comboPopup != null && overheat != null)
-                {
-                    comboPopup.Show(item.transform.position, overheat.Combo, GameToken);
-                }
-
-
-                if (finished || token.IsCancellationRequested || timer.IsTimeUp) return;
+                // ガード（3回目）
+                if (!IsCollectStillValid(token, ver)) return;
 
                 TrySpawnAt(centerIndex);
 
@@ -354,24 +293,128 @@ namespace Piramura.LookOrNotLook.Game
             }
             catch (Exception ex)
             {
-                // ここ重要：OperationCanceled以外で落ちると “拾えない残骸” を作りやすいのでログ
                 UnityEngine.Debug.LogException(ex);
             }
             finally
             {
-                // 確定できなかった場合は “触れる状態” に戻す（残骸対策）
                 if (!committed)
                 {
-                    RestoreInteractivity();
+                    RestoreInteractivity(gazeTarget, cols, ref interactivityDisabled);
                 }
 
                 if (lockAcquired)
                 {
-                    collectLock.Release(); // ★CurrentCount判定やめる
+                    collectLock.Release();
                 }
             }
         }
 
+        // リファクタ：Interactivity操作（ローカル関数→クラス private static）
+        private static void DisableInteractivity(
+            Piramura.LookOrNotLook.Gaze.GazeTarget gazeTarget,
+            Collider[] cols,
+            ref bool interactivityDisabled)
+        {
+            if (interactivityDisabled) return;
+            if (gazeTarget != null) gazeTarget.enabled = false;
+
+            for (int i = 0; i < cols.Length; i++)
+            {
+                if (cols[i] != null) cols[i].enabled = false;
+            }
+
+            interactivityDisabled = true;
+        }
+
+        private static void RestoreInteractivity(
+            Piramura.LookOrNotLook.Gaze.GazeTarget gazeTarget,
+            Collider[] cols,
+            ref bool interactivityDisabled)
+        {
+            if (!interactivityDisabled) return;
+            if (gazeTarget != null) gazeTarget.enabled = true;
+
+            for (int i = 0; i < cols.Length; i++)
+            {
+                if (cols[i] != null) cols[i].enabled = true;
+            }
+
+            interactivityDisabled = false;
+        }
+        // リファクタ：ガード/演出/確定/後処理メソッドをprivate関数化
+        private bool IsCollectStillValid(CancellationToken token, int ver)
+        {
+            if (finished) return false;
+            if (token.IsCancellationRequested) return false;
+            if (timer != null && timer.IsTimeUp) return false;
+            if (ver != session.Version) return false;
+            return true;
+        }
+
+        private async UniTask PlayCompletionReactionAsync(GameObject item, CancellationToken token)
+        {
+            var reaction = item.GetComponent<ItemReaction>();
+            if (reaction == null) return;
+
+            await reaction.CompleteAsync().AttachExternalCancellation(token);
+        }
+
+        private bool TryCommitCollect(
+            GameObject item,
+            out int centerIndex,
+            out ItemDefinition def,
+            out int delta,
+            out bool isPenalty)
+        {
+            centerIndex = -1;
+            def = null;
+            delta = 0;
+            isPenalty = false;
+
+            var slot = item.GetComponent<ItemSlot>();
+            if (slot == null) return false;
+
+            centerIndex = slot.Index;
+
+            var collectable = item.GetComponent<CollectableItem>();
+            if (collectable != null && collectable.Definition != null)
+            {
+                def = collectable.Definition;
+                int gain = def.Value;
+                int penalty = def.PenaltyValue > 0 ? def.PenaltyValue : def.Value;
+                delta = def.IsForbidden ? -penalty : gain;
+                isPenalty = def.IsForbidden;
+            }
+
+            slotObjects[centerIndex] = null;
+            if (!freeIndices.Contains(centerIndex)) freeIndices.Add(centerIndex);
+
+            RefreshAround(centerIndex);
+            return true;
+        }
+
+        private void PostCommit(ItemDefinition def, int delta, bool isPenalty, Vector3 pos)
+        {
+            if (def != null)
+            {
+                score.Add(delta);
+                achievement.OnCollect(def, delta);
+            }
+
+            if (isPenalty) sfx.PlayPenalty();
+            else sfx.PlayCollect();
+
+            if (overheat != null)
+            {
+                overheat.OnCollect(isPenalty);
+                Debug.Log($"[Overheat] combo={overheat.Combo} p={overheat.ForbiddenChance01:P0}");
+
+                if (!isPenalty && comboPopup != null)
+                {
+                    comboPopup.Show(pos, overheat.Combo, GameToken);
+                }
+            }
+        }
 
 
 
@@ -405,40 +448,8 @@ namespace Piramura.LookOrNotLook.Game
         private bool TrySpawnAt(int index)
         {
             if (!freeIndices.Contains(index)) return false;
-            if (config.ItemPool == null || config.ItemPool.Length == 0) return false;
-
-            var def = config.ItemPool[UnityEngine.Random.Range(0, config.ItemPool.Length)];
-            // ★Overheat: comboに応じてForbiddenを強制する
-            float p = overheat != null ? overheat.ForbiddenChance01 : 0f;
-            bool forceForbidden = UnityEngine.Random.value < p;
-            if (forceForbidden)
-            {
-                // Forbidden定義だけ抽出してそこから選ぶ
-                ItemDefinition picked = null;
-                int count = 0;
-
-                for (int i = 0; i < config.ItemPool.Length; i++)
-                {
-                    var d = config.ItemPool[i];
-                    if (d != null && d.IsForbidden)
-                    {
-                        count++;
-                        // reservoir samplingで1パス選択（軽い）
-                        // QiitaにあったからAIに書かせたやつ。過剰実装だからもどそう。
-                        // https://qiita.com/otoiku/items/ab994263f082675a806b
-                        if (UnityEngine.Random.Range(0, count) == 0)
-                            picked = d;
-                    }
-                }
-
-                // Forbiddenが一個も無かったら通常へフォールバック
-                def = picked;
-            }
-
-            if (def == null)
-            {
-                def = config.ItemPool[UnityEngine.Random.Range(0, config.ItemPool.Length)];
-            }
+            var def = SelectDefinitionWithOverheat();
+            if (def == null) return false;
             var go = itemSpawner.SpawnAt(index, def.Prefab);
 
             freeIndices.Remove(index);
@@ -449,11 +460,48 @@ namespace Piramura.LookOrNotLook.Game
 
             return true;
         }
+        private ItemDefinition SelectDefinitionWithOverheat()
+        {
+            if (config.ItemPool == null || config.ItemPool.Length == 0) return null;
+
+            var def = config.ItemPool[UnityEngine.Random.Range(0, config.ItemPool.Length)];
+
+            // Overheat: comboに応じてForbiddenを強制する
+            float p = overheat != null ? overheat.ForbiddenChance01 : 0f;
+            bool forceForbidden = UnityEngine.Random.value < p;
+            if (forceForbidden)
+            {
+                ItemDefinition picked = null;
+                int count = 0;
+
+                for (int i = 0; i < config.ItemPool.Length; i++)
+                {
+                    var d = config.ItemPool[i];
+                    if (d != null && d.IsForbidden)
+                    {
+                        count++;
+                        // reservoir sampling（1パスで等確率に1つ選ぶ）
+                        if (UnityEngine.Random.Range(0, count) == 0)
+                            picked = d;
+                    }
+                }
+
+                // Forbiddenが無ければ通常へフォールバック（現状仕様）
+                def = picked;
+            }
+
+            // nullだった場合は通常抽選へフォールバック（現状仕様）
+            if (def == null)
+                def = config.ItemPool[UnityEngine.Random.Range(0, config.ItemPool.Length)];
+
+            return def;
+        }
+
 
         private void RefreshAround(int centerIndex)
         {
             //centerIndex を含めない
-             layout.GetIndicesAround(centerIndex, config.RefreshRadius, aroundBuffer, includeCenter: false);
+            layout.GetIndicesAround(centerIndex, config.RefreshRadius, aroundBuffer, includeCenter: false);
 
             if (currentProgress != null)
             {
