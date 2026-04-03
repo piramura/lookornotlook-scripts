@@ -68,6 +68,7 @@ namespace Piramura.LookOrNotLook.Composition
             builder.RegisterComponentInHierarchy<Piramura.LookOrNotLook.Game.BoardPlacerToPlayer>();
             builder.Register<ItemSelectionPolicy>(Lifetime.Singleton);
             builder.Register<BoardSlotManager>(Lifetime.Singleton);
+            builder.Register<FocusTracker>(Lifetime.Singleton);
 
             // ---- EntryPoints (Tick順が超重要) ----
             // 1) Timer（最初に時間を確定させる）

@@ -21,7 +21,7 @@ namespace Piramura.LookOrNotLook.Game
     public sealed class GameLoop : IStartable, ITickable
     {
         // Injected services（依存）
-        private readonly SeeingLogic seeingLogic;
+        private readonly FocusTracker focusTracker;
         private readonly IScoreService score;
         private readonly IAchievementService achievement;
         private readonly ITimerService timer;
@@ -34,11 +34,6 @@ namespace Piramura.LookOrNotLook.Game
         private readonly IBoardCleaner boardCleaner;
         private readonly BoardPlacerToPlayer boardPlacerToPlayer;
 
-        //Focus cache（currentProgress等）
-        private ItemProgress currentProgress;
-        private CollectableItem currentCollectable;
-        private ItemReaction currentReaction;
-
         //Concurrency / session safety（collectLock / token / finished）
         private bool finished;
         private readonly SemaphoreSlim collectLock = new(1, 1);        
@@ -46,7 +41,7 @@ namespace Piramura.LookOrNotLook.Game
 
 
         public GameLoop(
-            SeeingLogic seeingLogic,
+            FocusTracker focusTracker,
             ITimerService timer,
             IScoreService score,
             IAchievementService achievement,
@@ -60,7 +55,7 @@ namespace Piramura.LookOrNotLook.Game
             BoardPlacerToPlayer boardPlacerToPlayer
             )
         {
-            this.seeingLogic = seeingLogic;
+            this.focusTracker = focusTracker;
             this.score = score;
             this.achievement = achievement;
             this.timer = timer;
@@ -99,7 +94,7 @@ namespace Piramura.LookOrNotLook.Game
             timer.StopAll();                 // 先に止める
             session.EndSession();            // 旧タスク殺す（ResetGame内でやるならどちらか片方に統一）
 
-            ClearFocus();
+            focusTracker.Clear();
             boardCleaner.ClearAll();         // 盤面を消す（方針としてここに統一）
 
             // 盤とUIをプレイヤー正面に配置（必要なら Place 側で距離/高さを調整）
@@ -124,7 +119,7 @@ namespace Piramura.LookOrNotLook.Game
             finished = true;
             session.EndSession();   // ★これが EndGameSession 相当
             timer.StopAll();
-            ClearFocus();
+            focusTracker.Clear();
             boardCleaner.ClearAll();
             state.SetPhase(GamePhase.Result);
         }
@@ -141,91 +136,9 @@ namespace Piramura.LookOrNotLook.Game
             }
 
             if (finished) return;
-            if (seeingLogic == null) return;
 
-            var target = seeingLogic.ActiveTarget;
-
-            ItemProgress nextProgress = null;
-            CollectableItem nextCollectable = null;
-            ItemReaction nextReaction = null;
-
-            if (target != null)
-            {
-                nextProgress = target.GetComponent<ItemProgress>();
-                if (nextProgress != null)
-                {
-                    nextCollectable = target.GetComponent<CollectableItem>();
-                    nextReaction = target.GetComponent<ItemReaction>();
-                }
-            }
-
-            // ターゲット変化 → リセット
-            if (currentProgress != nextProgress)
-            {
-                if (currentProgress != null)
-                    currentProgress.ResetProgress();
-
-                if (currentReaction != null && currentReaction != nextReaction)
-                {
-                    currentReaction.SetProgress01(0f);
-                    currentReaction.SetFocused(false);
-                }
-
-                if (nextReaction != null && currentReaction != nextReaction)
-                    nextReaction.SetFocused(true);
-
-                if (nextCollectable != null && nextCollectable.Definition != null)
-                    Debug.Log($"[GameLoop] Seeing Item -> {nextCollectable.Definition.DisplayName}");
-                else
-                    Debug.Log("[GameLoop] Seeing Item -> (none)");
-
-                currentProgress = nextProgress;
-                currentCollectable = nextCollectable;
-                currentReaction = nextReaction;
-            }
-
-            if (currentProgress == null) return;
-
-            // currentProgress.Tick(seeingLogic.CanProgress, UnityEngine.Time.deltaTime);
-            float dt = UnityEngine.Time.deltaTime;
-
-            if (overheat != null)
-            {
-                dt *= GetDwellSpeedMultiplier(overheat.Combo);
-            }
-
-            currentProgress.Tick(seeingLogic.CanProgress, dt);
-
-
-            if (currentReaction != null)
-                currentReaction.SetProgress01(currentProgress.Progress01);
-
-            if (currentProgress.IsCompleted)
-            {
-                if (currentReaction != null)
-                    currentReaction.SetFocused(false);
-
-                OnItemCompleted(currentProgress.gameObject).Forget();
-
-                currentProgress = null;
-                currentCollectable = null;
-                currentReaction = null;
-            }
-        }
-        // 倍率計算メソッド
-        private static float GetDwellSpeedMultiplier(int combo)
-        {
-            // 「体感が出る」ように dwell秒を減らして、その分だけ進みを速くする
-            const float baseDwell = 1.20f; // コンボ0のときの必要時間（秒）
-            const float minDwell  = 0.35f; // 下限（これ以上速いと制御不能になりやすい）
-            const float step      = 0.08f; // コンボ1ごとに減る秒数
-
-            float dwell = baseDwell - step * combo;
-            if (dwell < minDwell) dwell = minDwell;
-
-            // 進み速度倍率：dwellが短いほど速くなる
-            float speed = baseDwell / dwell; // combo0で1.0、comboが増えると >1
-            return speed;
+            var completed = focusTracker.Tick(UnityEngine.Time.deltaTime);
+            if (completed != null) OnItemCompleted(completed).Forget();
         }
 
         //OnItemCompleted 本体（ローカル関数削除＋分割呼び出しに置換）
@@ -373,15 +286,13 @@ namespace Piramura.LookOrNotLook.Game
                 isPenalty = def.IsForbidden;
             }
 
-            int focusedIndex = currentProgress != null
-                ? currentProgress.GetComponent<ItemSlot>()?.Index ?? -1
-                : -1;
+            int focusedIndex = focusTracker.FocusedSlotIndex;
 
             boardSlotManager.FreeSlot(centerIndex);
             boardSlotManager.RefreshAround(
                 centerIndex,
                 focusedSlotIndex: focusedIndex,
-                onFocusHit: focusedIndex >= 0 ? ClearFocus : null
+                onFocusHit: focusedIndex >= 0 ? focusTracker.Clear : null
             );
             return true;
         }
@@ -417,7 +328,7 @@ namespace Piramura.LookOrNotLook.Game
             // 旧プレイを止める（旧タスク殺す）
             finished = true;
             session.EndSession();                 // ★旧セッション中の非同期を殺す
-            ClearFocus();
+            focusTracker.Clear();
 
             // ここで新プレイ用セッションを先に作る（以降の非同期は新Token基準）
             session.BeginNewSession();
@@ -433,19 +344,6 @@ namespace Piramura.LookOrNotLook.Game
             // 再スポーン
             boardSlotManager.SpawnAll();
             finished = false;
-        }
-
-        private void ClearFocus()
-        {
-            if (currentProgress != null) currentProgress.ResetProgress();
-            if (currentReaction != null)
-            {
-                currentReaction.SetProgress01(0f);
-                currentReaction.SetFocused(false);
-            }
-            currentProgress = null;
-            currentCollectable = null;
-            currentReaction = null;
         }
 
         public void GoTitleFromResult()
