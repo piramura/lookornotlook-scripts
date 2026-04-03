@@ -39,7 +39,22 @@ Inputは視線の生データを提供するだけで、Focus/進行/判定はGa
 - Composition/ にDIのComposition Rootを集約（分散禁止）
 - Shared/ は汎用のみ（ドメイン依存やSDK依存は置かない）
 ## Namespaceルール（境界一致）
-- Rootは Piramura.LookOrNotLook に固定する
+- Rootは Piramura.LookOrNotLook に固定する（目標ルール）
 - 次にDomainを付ける
 - 必要な場合のみLayerを付与する
 - フォルダ構造と完全一致はさせない（移動時のnamespace変更を最小化）
+- 既知の例外: `Session/GameSession.cs` は namespace なし、`Common/AsyncMB.cs` は `Piramura.Common`（新規ファイルは目標ルールに従う）
+
+## 実装と方針の乖離メモ（既知の技術負債）
+
+### GameLoop.cs の責務集中
+`Game/GameLoop.cs` はボード状態管理・フォーカスキャッシュ・アイテム選択・フェーズ遷移・取得後処理を一手に担っており、上記のレイヤー方針から逸脱している。段階的な責務分離を予定している。分離方針の詳細は `CLAUDE.md` を参照。
+
+### GazeCollectCoordinator.cs の位置づけ
+`Game/GazeCollectCoordinator.cs` は public 側の `GameLifetimeScope` に登録されていない。private 側の別 Scope で使われているかは確認不可。将来の CollectCoordinator 分離リファクタ時の参考として残置している。
+
+### SeeingLogic.cs のレイヤー配置
+`Logic/SeeingLogic.cs` は `Logic/` フォルダに配置されているが、`GazeManager` のイベントを購読する `MonoBehaviour` であり、厳密には Input に近い。移動するかどうかは要検討。
+
+### GameSession.cs の Namespace
+`Session/GameSession.cs` は他のファイルと異なり namespace が付与されていない。将来的には `Piramura.LookOrNotLook.Session` に統一予定。

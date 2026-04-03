@@ -1,98 +1,133 @@
 # このリポジトリについて
+
 このリポジトリは、個人開発している Unity VR ゲーム LookOrNotLook の C# Scripts 部分を切り出したものです。
 
 ## 目的
+
 - Unity プロジェクト全体（アセットや依存関係）を公開せずに、コードだけをどこでも閲覧できる状態にする
 - 他の人にレビューを依頼しやすくする（リンクひとつで見てもらえる）
 - 開発環境がノートPC→デスクトップPC中心に移ったが、必要に応じて ノートPCでもコードを書けるようにする
 - public に置くことで「見られても恥ずかしくないコードを書く」ための 修行環境にする
 
 この README は、このリポジトリの概要と、個人開発での運用方法をメモする目的で書いています。
+
+## Claude Code セッション
+
+Claude Code で作業する際は [`CLAUDE.md`](./CLAUDE.md) を参照してください。作業分類・コミット手順・TODO フォーマット・アーキテクチャ原則がまとまっています。
+
 ## 運用方法（Submodule運用）
+
 このリポジトリは、private の Unity プロジェクト側に Git submodule として取り込み、開発に利用します。
+
 ## 更新手順
+
 - submodule を初めて使うので更新のずれに気を付ける。
 - submodule 側（このリポジトリ）で pull / 変更 → commit → push
 - private Unity プロジェクト側の親リポジトリで submodule の更新を反映（commit）
+
 ### ポイント：
+
 - submodule 内で更新しただけでは、親リポジトリ側には反映されません
 - 親リポジトリは「submodule の参照先コミット」が更新されるので、親側でも必ずコミットします
-## ディレクトリ構成（2026/02/02）
+
+## アーキテクチャ概要
+
+Layer 依存方向（一方向のみ許可）:
+
+```
+Presentation → GameFlow → Logic → Input → Infrastructure
+```
+
+詳細は [`overall.md`](./overall.md) を参照。
+
+## ディレクトリ構成
+
 <pre>
 lookornotlook-scripts/
-├── Achievements/
-│   ├── AchievementManager.cs
+├── Achievements/               # 実績システム（定義・状態管理・UI構築）
+│   ├── AchievementCell.cs
 │   ├── AchievementDefinition.cs
-│   ├── AchievementRuntimeState.cs
 │   ├── AchievementGridBuilder.cs
+│   ├── AchievementManager.cs
+│   ├── AchievementRuntimeState.cs
+│   ├── AchievementTestDriver.cs
 │   └── interface/
 │       └── IHoverable.cs
 │
-├── Audio/
+├── Audio/                      # SEサービス（Interface + 実装）
 │   ├── ISfxService.cs
-│   ├── SfxService.cs
 │   ├── SfxConfig.cs
+│   ├── SfxService.cs
 │   └── SfxSource.cs
 │
-├── Common/
+├── Common/                     # 汎用ユーティリティ（ドメイン依存なし）
 │   ├── AsyncMB.cs
 │   └── BillboardToCamera.cs
 │
-├── Composition/
+├── Composition/                # DI Composition Root（VContainer）
 │   └── GameLifetimeScope.cs
 │
-├── Debug/
+├── Debug/                      # デバッグ表示ツール
 │   └── GazeDebugView.cs
 │
-├── Game/
-│   ├── GameManager.cs
-│   ├── GameLoop.cs
-│   ├── GameController.cs
-│   ├── GameInputCoordinator.cs
-│   ├── ResultFlow.cs
-│   ├── State/
+├── Game/                       # ゲーム進行のオーケストレーション
+│   ├── GameLoop.cs             # メインのゲームループ（IStartable, ITickable）
+│   ├── GameManager.cs          # 設定値コンテナ（ItemPool, RefreshRadius等）
+│   ├── GameController.cs       # IGameActions の実装
+│   ├── GameInputCoordinator.cs # フェーズ別の入力ルーティング
+│   ├── GazeCollectCoordinator.cs  # public 側 GameLifetimeScope では未配線
+│   ├── IGameActions.cs
+│   ├── BoardPlacerToPlayer.cs  # プレイヤーに向けてボードを配置
+│   ├── ResultFlow.cs           # リザルト画面の遷移フロー
+│   ├── TimeUpSfxCoordinator.cs # タイムアップ時のSE制御
+│   ├── State/                  # ゲームフェーズ状態管理
 │   │   ├── GamePhase.cs
+│   │   ├── IGameStateService.cs
 │   │   ├── GameStateService.cs
-│   │   └── IGameStateService.cs
-│   ├── Timer/
+│   │   └── TimeUpResultCoordinator.cs
+│   ├── Timer/                  # ゲームタイマー
 │   │   ├── ITimerService.cs
 │   │   └── TimerService.cs
-│   └── Overheat/
+│   └── Overheat/               # コンボ連続取得による難易度変調
 │       ├── IOverheatService.cs
 │       └── OverheatService.cs
 │
-├── Gaze/
-│   ├── GazeManager.cs
-│   ├── GazeTarget.cs
+├── Gaze/                       # 視線入力の処理（低レイヤー）
+│   ├── GazeDebugState.cs
+│   ├── GazeManager.cs          # レイキャスト + 注視検出
 │   ├── GazeRayVisualizer.cs
-│   └── GazeReticleSdfView.cs
+│   ├── GazeReticleSdfView.cs
+│   └── GazeTarget.cs
 │
-├── Item/
-│   ├── ItemDefinition.cs
-│   ├── ItemSpawner.cs
-│   ├── ItemProgress.cs
+├── Item/                       # 収集アイテムシステム
+│   ├── BoardCleaner.cs
+│   ├── CollectableItem.cs
+│   ├── ItemCategory.cs
+│   ├── ItemDefinition.cs       # ScriptableObject：アイテム設定値
+│   ├── ItemLayout.cs
+│   ├── ItemProgress.cs         # アイテムごとの注視タイマー
 │   ├── ItemSlot.cs
-│   └── BoardCleaner.cs
+│   └── ItemSpawner.cs
 │
-├── Logic/
-│   ├── IScoreService.cs
-│   ├── ScoreService.cs
+├── Logic/                      # ゲームルール・スコア・実績判定
 │   ├── IAchievementService.cs
-│   ├── AchievementService.cs
-│   └── SeeingLogic.cs
+│   ├── AchievementService.cs   # 純C#（テスト可）
+│   ├── IScoreService.cs
+│   ├── ScoreService.cs         # 純C#（テスト可）
+│   └── SeeingLogic.cs          # 注視判定（MonoBehaviour。フォルダ方針とは乖離あり）
 │
-├── Reaction/
-│   └── ItemReaction.cs
+├── Reaction/                   # アイテム取得時のビジュアル反応
+│   └── ItemReactiion.cs
 │
-├── Save/
+├── Save/                       # セーブ・ロード（Interface + PlayerPrefs実装）
 │   ├── ISaveService.cs
 │   ├── PlayerPrefsSaveService.cs
 │   └── SaveCoordinator.cs
 │
-├── Session/
+├── Session/                    # 非同期キャンセルのライフタイム管理
 │   └── GameSession.cs
 │
-└── UI/
+└── UI/                         # MVP パターンによる UI 層
     ├── Achievement/
     │   ├── AchievementPresenter.cs
     │   └── AchievementView.cs
@@ -102,11 +137,12 @@ lookornotlook-scripts/
     ├── Title/
     │   ├── TitlePresenter.cs
     │   └── TitleView.cs
-    ├── ScorePresenter.cs
-    ├── TimePresenter.cs
+    ├── ComboPopup.cs
+    ├── ComboPopupSpawner.cs
     ├── ProgressBarView.cs
+    ├── ScorePresenter.cs
+    ├── ScoreView.cs
+    ├── TimePresenter.cs
+    ├── TimeView.cs
     └── UIHoverForwarder.cs
 </pre>
-
-## 各フォルダの説明
-... 後ほど書いていく
