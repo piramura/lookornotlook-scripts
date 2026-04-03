@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Piramura.LookOrNotLook.Item;
 using Piramura.LookOrNotLook.Logic;
@@ -23,25 +22,17 @@ namespace Piramura.LookOrNotLook.Game
     {
         // Injected services（依存）
         private readonly SeeingLogic seeingLogic;
-        private readonly ItemSpawner itemSpawner;
-        private readonly ItemLayout layout;
-        private readonly GameManager config; // itemPool / refreshRadius / spawnAllOnStart を持つ薄い設定役
         private readonly IScoreService score;
         private readonly IAchievementService achievement;
         private readonly ITimerService timer;
         private readonly IGameSession session;
         private readonly ISfxService sfx;
         private readonly IOverheatService overheat;
-        private readonly ItemSelectionPolicy itemSelectionPolicy;
+        private readonly BoardSlotManager boardSlotManager;
         private readonly ComboPopupSpawner comboPopup;
         private readonly IGameStateService state;
         private readonly IBoardCleaner boardCleaner;
         private readonly BoardPlacerToPlayer boardPlacerToPlayer;
-
-        //Board state（slot/freeIndices/aroundBuffer）
-        private GameObject[] slotObjects;
-        private readonly List<int> freeIndices = new();
-        private readonly List<int> aroundBuffer = new();
 
         //Focus cache（currentProgress等）
         private ItemProgress currentProgress;
@@ -55,17 +46,14 @@ namespace Piramura.LookOrNotLook.Game
 
 
         public GameLoop(
-            SeeingLogic seeingLogic, 
-            ItemSpawner itemSpawner, 
-            ItemLayout layout, 
-            GameManager config, 
+            SeeingLogic seeingLogic,
             ITimerService timer,
             IScoreService score,
             IAchievementService achievement,
             ISfxService sfx,
             IGameSession session,
             IOverheatService overheat,
-            ItemSelectionPolicy itemSelectionPolicy,
+            BoardSlotManager boardSlotManager,
             ComboPopupSpawner comboPopup,
             IGameStateService state,
             IBoardCleaner boardCleaner,
@@ -73,16 +61,13 @@ namespace Piramura.LookOrNotLook.Game
             )
         {
             this.seeingLogic = seeingLogic;
-            this.itemSpawner = itemSpawner;
-            this.layout = layout;
-            this.config = config;
             this.score = score;
             this.achievement = achievement;
             this.timer = timer;
             this.sfx = sfx;
             this.session = session;
             this.overheat = overheat;
-            this.itemSelectionPolicy = itemSelectionPolicy;
+            this.boardSlotManager = boardSlotManager;
             this.comboPopup = comboPopup;
             this.state = state;
             this.boardCleaner = boardCleaner;
@@ -105,9 +90,8 @@ namespace Piramura.LookOrNotLook.Game
             // 盤面は出さない方針なら消す（保険）
             boardCleaner.ClearAll();
 
-            // 内部配列だけ準備
-            RebuildFreeIndices();
-            slotObjects = new GameObject[layout.Count];
+            // 内部配列だけ準備（盤面は出さない）
+            boardSlotManager.Reset();
         }
         private void EnterPlaying()
         {
@@ -286,7 +270,7 @@ namespace Piramura.LookOrNotLook.Game
                 // ガード（3回目）
                 if (!IsCollectStillValid(token, ver)) return;
 
-                TrySpawnAt(centerIndex);
+                boardSlotManager.SpawnAt(centerIndex);
 
                 committed = true;
             }
@@ -389,10 +373,16 @@ namespace Piramura.LookOrNotLook.Game
                 isPenalty = def.IsForbidden;
             }
 
-            slotObjects[centerIndex] = null;
-            if (!freeIndices.Contains(centerIndex)) freeIndices.Add(centerIndex);
+            int focusedIndex = currentProgress != null
+                ? currentProgress.GetComponent<ItemSlot>()?.Index ?? -1
+                : -1;
 
-            RefreshAround(centerIndex);
+            boardSlotManager.FreeSlot(centerIndex);
+            boardSlotManager.RefreshAround(
+                centerIndex,
+                focusedSlotIndex: focusedIndex,
+                onFocusHit: focusedIndex >= 0 ? ClearFocus : null
+            );
             return true;
         }
 
@@ -421,87 +411,6 @@ namespace Piramura.LookOrNotLook.Game
 
 
 
-        private static void DisableColliders(GameObject go)
-        {
-            var cols = go.GetComponentsInChildren<Collider>(true);
-            for (int i = 0; i < cols.Length; i++)
-                cols[i].enabled = false;
-        }
-        private void SpawnAll()
-        {
-            while (freeIndices.Count > 0)
-                TrySpawnRandomOne();
-        }
-
-        private void RebuildFreeIndices()
-        {
-            freeIndices.Clear();
-            for (int i = 0; i < layout.Count; i++)
-                freeIndices.Add(i);
-        }
-
-        private bool TrySpawnRandomOne()
-        {
-            if (freeIndices.Count == 0) return false;
-            int pick = UnityEngine.Random.Range(0, freeIndices.Count);
-            int index = freeIndices[pick];
-            return TrySpawnAt(index);
-        }
-
-        private bool TrySpawnAt(int index)
-        {
-            if (!freeIndices.Contains(index)) return false;
-            var def = itemSelectionPolicy.Select(config.ItemPool);
-            if (def == null) return false;
-            var go = itemSpawner.SpawnAt(index, def.Prefab);
-
-            freeIndices.Remove(index);
-            slotObjects[index] = go;
-
-            go.GetComponent<ItemSlot>().SetIndex(index);
-            go.GetComponent<CollectableItem>().SetDefinition(def);
-
-            return true;
-        }
-
-        private void RefreshAround(int centerIndex)
-        {
-            //centerIndex を含めない
-            layout.GetIndicesAround(centerIndex, config.RefreshRadius, aroundBuffer, includeCenter: false);
-
-            if (currentProgress != null)
-            {
-                int curIndex = currentProgress.GetComponent<ItemSlot>().Index;
-                if (aroundBuffer.Contains(curIndex))
-                {
-                    if (currentReaction != null) currentReaction.SetFocused(false);
-                    currentProgress = null;
-                    currentCollectable = null;
-                    currentReaction = null;
-                }
-            }
-
-            // 1) 範囲内を消す
-            for (int i = 0; i < aroundBuffer.Count; i++)
-            {
-                int idx = aroundBuffer[i];
-
-                if (slotObjects[idx] != null)
-                {
-                    UnityEngine.Object.Destroy(slotObjects[idx]);
-                    slotObjects[idx] = null;
-                }
-
-                if (!freeIndices.Contains(idx))
-                    freeIndices.Add(idx);
-            }
-
-            // 2) スポーンし直す
-            for (int i = 0; i < aroundBuffer.Count; i++)
-            {
-                TrySpawnAt(aroundBuffer[i]);
-            }
-        }
         public void ResetGame()
         {
             overheat?.Reset();
@@ -513,21 +422,8 @@ namespace Piramura.LookOrNotLook.Game
             // ここで新プレイ用セッションを先に作る（以降の非同期は新Token基準）
             session.BeginNewSession();
 
-            // 既存スポーンを全消し
-            if (slotObjects != null)
-            {
-                for (int i = 0; i < slotObjects.Length; i++)
-                {
-                    if (slotObjects[i] != null)
-                    {
-                        UnityEngine.Object.Destroy(slotObjects[i]);
-                        slotObjects[i] = null;
-                    }
-                }
-            }
-
-            // スロット管理を初期化
-            RebuildFreeIndices();
+            // 盤面リセット（全 Destroy + 空き再構築）
+            boardSlotManager.Reset();
 
             // スコア/称号/タイマーを初期化
             score.Reset();
@@ -535,8 +431,7 @@ namespace Piramura.LookOrNotLook.Game
             timer.Reset();
 
             // 再スポーン
-            slotObjects = new GameObject[layout.Count];
-            SpawnAll();
+            boardSlotManager.SpawnAll();
             finished = false;
         }
 
