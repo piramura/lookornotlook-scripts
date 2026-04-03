@@ -57,5 +57,42 @@ namespace Piramura.LookOrNotLook.Tests.Logic
             service.Reset();
             Assert.AreEqual(0, service.Combo);
         }
+
+        [Test]
+        public void Reset_SetsChanceToBase()
+        {
+            for (int i = 0; i < 10; i++)
+                service.OnCollect(false);
+            service.Reset();
+            Assert.AreEqual(0.05f, service.ForbiddenChance01, 0.0001f);
+        }
+
+        [Test]
+        public void Reset_FiresChangedEvent()
+        {
+            service.OnCollect(false);
+            int callCount = 0;
+            service.Changed += (_, _) => callCount++;
+            service.Reset();
+            Assert.AreEqual(1, callCount);
+        }
+
+        [Test]
+        public void OnCollect_Normal_FiresChangedEvent()
+        {
+            int callCount = 0;
+            service.Changed += (_, _) => callCount++;
+            service.OnCollect(false);
+            Assert.AreEqual(1, callCount);
+        }
+
+        [Test]
+        public void OnCollect_Forbidden_FiresChangedEvent()
+        {
+            int callCount = 0;
+            service.Changed += (_, _) => callCount++;
+            service.OnCollect(true);
+            Assert.AreEqual(1, callCount);
+        }
     }
 }

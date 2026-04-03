@@ -54,5 +54,14 @@ namespace Piramura.LookOrNotLook.Tests.Logic
             service.Reset();
             Assert.AreEqual(0, received);
         }
+
+        [Test]
+        public void Add_MultipleAdds_Accumulates()
+        {
+            service.Add(100);
+            service.Add(200);
+            service.Add(300);
+            Assert.AreEqual(600, service.Score);
+        }
     }
 }

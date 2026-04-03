@@ -104,5 +104,54 @@ namespace Piramura.LookOrNotLook.Tests.Logic
             service.OnCollect(MakeItem(ItemCategory.Food), 10); // still Collector
             Assert.AreEqual(0, callCount);
         }
+
+        [Test]
+        public void OnCollect_Null_DoesNotThrowAndDoesNotChangeState()
+        {
+            int callCount = 0;
+            service.Changed += _ => callCount++;
+
+            Assert.DoesNotThrow(() => service.OnCollect(null, 0));
+
+            Assert.AreEqual("Beginner", service.CurrentAchievement);
+            Assert.AreEqual(0, callCount);
+        }
+
+        [Test]
+        public void OnCollect_19NormalItems_NotYetMasterCollector()
+        {
+            for (int i = 0; i < 19; i++)
+                service.OnCollect(MakeItem(ItemCategory.Food), 10);
+            Assert.AreNotEqual("Master Collector", service.CurrentAchievement);
+        }
+
+        [Test]
+        public void OnCollect_2ForbiddenItems_NotYetRealityCheck()
+        {
+            for (int i = 0; i < 2; i++)
+                service.OnCollect(MakeItem(ItemCategory.Reality, isForbidden: true), -5);
+            Assert.AreNotEqual("Reality Check", service.CurrentAchievement);
+        }
+
+        [Test]
+        public void ForbiddenItem_NotCountedTowardTotalCollected()
+        {
+            // 通常 19 個 + forbidden 1 個では Master Collector にならない
+            for (int i = 0; i < 19; i++)
+                service.OnCollect(MakeItem(ItemCategory.Food), 10);
+            service.OnCollect(MakeItem(ItemCategory.Reality, isForbidden: true), -5);
+            Assert.AreNotEqual("Master Collector", service.CurrentAchievement);
+        }
+
+        [Test]
+        public void Reset_FiresChangedEvent_WhenTitleWasNotBeginner()
+        {
+            service.OnCollect(MakeItem(ItemCategory.Food), 10); // → Collector
+            int callCount = 0;
+            service.Changed += _ => callCount++;
+            service.Reset();
+            Assert.AreEqual("Beginner", service.CurrentAchievement);
+            Assert.AreEqual(1, callCount);
+        }
     }
 }
