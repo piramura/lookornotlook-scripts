@@ -16,11 +16,13 @@ using VContainer.Unity;
 namespace Piramura.LookOrNotLook.Game
 {
     /// <summary>
-    /// ゲームの進行処理（Update相当）をEntryPointへ移したもの
+    /// フレームティック処理と非同期収集フローを担当する。
+    /// フェーズ遷移シーケンスは GamePhaseController に委譲する。
     /// </summary>
-    public sealed class GameLoop : IStartable, ITickable
+    public sealed class GameLoop : ITickable
     {
         // Injected services（依存）
+        private readonly GamePhaseController controller;
         private readonly FocusTracker focusTracker;
         private readonly IScoreService score;
         private readonly IAchievementService achievement;
@@ -31,16 +33,16 @@ namespace Piramura.LookOrNotLook.Game
         private readonly BoardSlotManager boardSlotManager;
         private readonly ComboPopupSpawner comboPopup;
         private readonly IGameStateService state;
-        private readonly IBoardCleaner boardCleaner;
-        private readonly BoardPlacerToPlayer boardPlacerToPlayer;
 
-        //Concurrency / session safety（collectLock / token / finished）
-        private bool finished;
-        private readonly SemaphoreSlim collectLock = new(1, 1);        
+        // Tick ゲート（同フレーム内での相互排他）
+        // GamePhaseController.Start() が TitleScreen を設定するまで Tick を止める
+        private bool finished = true;
+        private readonly SemaphoreSlim collectLock = new(1, 1);
         private CancellationToken GameToken => session.Token;
 
 
         public GameLoop(
+            GamePhaseController controller,
             FocusTracker focusTracker,
             ITimerService timer,
             IScoreService score,
@@ -50,11 +52,9 @@ namespace Piramura.LookOrNotLook.Game
             IOverheatService overheat,
             BoardSlotManager boardSlotManager,
             ComboPopupSpawner comboPopup,
-            IGameStateService state,
-            IBoardCleaner boardCleaner,
-            BoardPlacerToPlayer boardPlacerToPlayer
-            )
+            IGameStateService state)
         {
+            this.controller = controller;
             this.focusTracker = focusTracker;
             this.score = score;
             this.achievement = achievement;
@@ -65,73 +65,17 @@ namespace Piramura.LookOrNotLook.Game
             this.boardSlotManager = boardSlotManager;
             this.comboPopup = comboPopup;
             this.state = state;
-            this.boardCleaner = boardCleaner;
-            this.boardPlacerToPlayer = boardPlacerToPlayer;
-        }
-        
-
-        public void Start()
-        {
-            finished = true; // ← 起動直後はプレイしてない扱い
-            Debug.Log("[GameLoop] Start");
-            overheat?.Reset();
-            // 起動直後はタイトルで止める
-            state.SetPhase(GamePhase.TitleScreen);
-
-            // タイマー止める（勝手に進むの防止）
-            timer.StopAll();
-            timer.Reset();
-
-            // 盤面は出さない方針なら消す（保険）
-            boardCleaner.ClearAll();
-
-            // 内部配列だけ準備（盤面は出さない）
-            boardSlotManager.Reset();
-        }
-        private void EnterPlaying()
-        {
-            finished = true;                 // 途中Tickを止める（保険）
-            timer.StopAll();                 // 先に止める
-            session.EndSession();            // 旧タスク殺す（ResetGame内でやるならどちらか片方に統一）
-
-            focusTracker.Clear();
-            boardCleaner.ClearAll();         // 盤面を消す（方針としてここに統一）
-
-            // 盤とUIをプレイヤー正面に配置（必要なら Place 側で距離/高さを調整）
-            boardPlacerToPlayer.PlaceBoardAndUiInFrontOfPlayer();
-
-            ResetGame();                     // 盤面・スコア・新セッション開始・再生成
-            state.SetPhase(GamePhase.Playing);
-
-            timer.Reset();
-            timer.StartTimer();
-
-            finished = false;
-        }
-
-        public void StartGameFromTitle() => EnterPlaying();
-        public void RetryFromResult()    => EnterPlaying();
-        public void DebugResetToPlaying() => EnterPlaying();
-
-
-        public void EnterResult()
-        {
-            finished = true;
-            session.EndSession();   // ★これが EndGameSession 相当
-            timer.StopAll();
-            focusTracker.Clear();
-            boardCleaner.ClearAll();
-            state.SetPhase(GamePhase.Result);
         }
 
 
         public void Tick()
         {
-            if (state.Phase != GamePhase.Playing) return; // ★ここがゲート
+            if (state.Phase != GamePhase.Playing) return; // ★フェーズゲート
             // 時間切れなら一度だけ終了処理して止める
             if (!finished && timer != null && timer.IsTimeUp)
             {
-                EnterResult();
+                finished = true;
+                controller.EnterResult();
                 return;
             }
 
@@ -140,6 +84,21 @@ namespace Piramura.LookOrNotLook.Game
             var completed = focusTracker.Tick(UnityEngine.Time.deltaTime);
             if (completed != null) OnItemCompleted(completed).Forget();
         }
+
+        // ---- フェーズ遷移ファサード（外部 API は変わらない）----
+
+        public void StartGameFromTitle()
+        {
+            finished = true;
+            controller.EnterPlaying();
+            finished = false;
+        }
+
+        public void RetryFromResult()     => StartGameFromTitle();
+        public void DebugResetToPlaying() => StartGameFromTitle();
+        public void GoTitleFromResult()   => controller.GoTitleFromResult();
+
+        // ---- 非同期収集フロー ----
 
         //OnItemCompleted 本体（ローカル関数削除＋分割呼び出しに置換）
         private async UniTask OnItemCompleted(GameObject item)
@@ -164,7 +123,7 @@ namespace Piramura.LookOrNotLook.Game
                 // ガード（1回目）
                 if (!IsCollectStillValid(token, ver)) return;
 
-                // “確定へ進む意思”があるのでインタラクション無効化
+                // "確定へ進む意思"があるのでインタラクション無効化
                 DisableInteractivity(gazeTarget, cols, ref interactivityDisabled);
 
                 // 演出
@@ -241,7 +200,7 @@ namespace Piramura.LookOrNotLook.Game
 
             interactivityDisabled = false;
         }
-        // リファクタ：ガード/演出/確定/後処理メソッドをprivate関数化
+
         private bool IsCollectStillValid(CancellationToken token, int ver)
         {
             if (finished) return false;
@@ -318,41 +277,6 @@ namespace Piramura.LookOrNotLook.Game
                     comboPopup.Show(pos, overheat.Combo, GameToken);
                 }
             }
-        }
-
-
-
-        public void ResetGame()
-        {
-            overheat?.Reset();
-            // 旧プレイを止める（旧タスク殺す）
-            finished = true;
-            session.EndSession();                 // ★旧セッション中の非同期を殺す
-            focusTracker.Clear();
-
-            // ここで新プレイ用セッションを先に作る（以降の非同期は新Token基準）
-            session.BeginNewSession();
-
-            // 盤面リセット（全 Destroy + 空き再構築）
-            boardSlotManager.Reset();
-
-            // スコア/称号/タイマーを初期化
-            score.Reset();
-            achievement.Reset();
-            timer.Reset();
-
-            // 再スポーン
-            boardSlotManager.SpawnAll();
-            finished = false;
-        }
-
-        public void GoTitleFromResult()
-        {
-            boardCleaner.ClearAll();     // タイトルでは盤面を消す方針なら
-            state.SetPhase(GamePhase.TitleScreen);
-
-            timer.Reset();
-            timer.StopAll();
         }
     }
 }

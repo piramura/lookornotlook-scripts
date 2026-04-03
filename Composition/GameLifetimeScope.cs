@@ -76,11 +76,13 @@ namespace Piramura.LookOrNotLook.Composition
                 .AsSelf()
                 .As<ITimerService>();
 
-
             // 2) TimeUp音（TimeUpが出たら即 EndSession/StopAll/PlayTimeUp）
             builder.RegisterEntryPoint<TimeUpSfxCoordinator>(Lifetime.Singleton);
 
-            // 3) Game進行（Timerの後に回る）
+            // 3) フェーズ遷移（IStartable のみ。Tick には参加しない）
+            builder.RegisterEntryPoint<GamePhaseController>(Lifetime.Singleton).AsSelf();
+
+            // 4) Game進行（Timerの後に回る）
             // GameLoop（UIから注入するなら AsSelf 必須）
             builder.RegisterEntryPoint<GameLoop>(Lifetime.Singleton).AsSelf();
 
