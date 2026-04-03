@@ -1,5 +1,6 @@
 using System;
 using Piramura.LookOrNotLook.Audio;
+using Piramura.LookOrNotLook.Game.State;
 using Piramura.LookOrNotLook.Game.Timer;
 using VContainer.Unity;
 
@@ -10,33 +11,41 @@ namespace Piramura.LookOrNotLook.Game
         private readonly ITimerService timer;
         private readonly ISfxService sfx;
         private readonly IGameSession session;
+        private readonly IGameStateService state;
         private bool fired;
 
-        public TimeUpSfxCoordinator(ITimerService timer, ISfxService sfx, IGameSession session)
+        public TimeUpSfxCoordinator(ITimerService timer, ISfxService sfx, IGameSession session, IGameStateService state)
         {
             this.timer = timer;
             this.sfx = sfx;
             this.session = session;
-            timer.OnTimeUp += OnTimeUp;
+            this.state = state;
         }
 
         public void Start()
         {
             timer.OnTimeUp += OnTimeUp;
+            state.Changed += OnPhaseChanged;
         }
 
         public void Dispose()
         {
             timer.OnTimeUp -= OnTimeUp;
+            state.Changed -= OnPhaseChanged;
+        }
+
+        private void OnPhaseChanged(GamePhase phase)
+        {
+            if (phase == GamePhase.Playing) fired = false;
         }
 
         private void OnTimeUp()
         {
-            if(fired) return;
+            if (fired) return;
             fired = true;
-            session.EndSession(); // 先に止める
-            sfx.StopAll();        // 残ってるOneShotを止める
-            sfx.PlayTimeUp();     // TimeUpだけ鳴らす
+            sfx.StopAll();        // 残っているOneShotを止める
+            sfx.PlayTimeUp();     // session.IsAlive のうちに鳴らす
+            session.EndSession(); // セッションを閉じる
         }
     }
 }

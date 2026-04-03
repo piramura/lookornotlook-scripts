@@ -17,19 +17,19 @@ namespace Piramura.LookOrNotLook.UI.Result
         private IGameStateService state;
         private IScoreService score;
         private IAchievementService achievement;
-        private GameLoop gameLoop;
+        private IResultFlow resultFlow;
 
         [Inject]
         public void Construct(
             IGameStateService state,
             IScoreService score,
             IAchievementService achievement,
-            GameLoop gameLoop)
+            IResultFlow resultFlow)
         {
             this.state = state;
             this.score = score;
             this.achievement = achievement;
-            this.gameLoop = gameLoop;
+            this.resultFlow = resultFlow;
         }
 
         private void Awake()
@@ -83,20 +83,14 @@ namespace Piramura.LookOrNotLook.UI.Result
 
         private void OnRetryClicked()
         {
-            // ここは「確実にPlayingへ戻す」
             if (view != null) view.SetInteractable(false);
-
-            gameLoop?.ResetGame();
-            state?.SetPhase(GamePhase.Playing);
+            resultFlow?.Retry();
         }
 
         private void OnTitleClicked()
         {
-            // シーン遷移が無い前提の「疑似タイトル」へ戻す
             if (view != null) view.SetInteractable(false);
-
-            gameLoop?.ResetGame();
-            state?.SetPhase(GamePhase.TitleScreen);
+            resultFlow?.GoTitle();
         }
     }
 }
