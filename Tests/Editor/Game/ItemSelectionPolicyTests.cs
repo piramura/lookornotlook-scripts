@@ -5,6 +5,7 @@ using Piramura.LookOrNotLook.Game;
 using Piramura.LookOrNotLook.Game.Overheat;
 using Piramura.LookOrNotLook.Item;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
 namespace Piramura.LookOrNotLook.Tests.Game
 {
