@@ -32,6 +32,7 @@ namespace Piramura.LookOrNotLook.Game
         private readonly IGameSession session;
         private readonly ISfxService sfx;
         private readonly IOverheatService overheat;
+        private readonly ItemSelectionPolicy itemSelectionPolicy;
         private readonly ComboPopupSpawner comboPopup;
         private readonly IGameStateService state;
         private readonly IBoardCleaner boardCleaner;
@@ -64,6 +65,7 @@ namespace Piramura.LookOrNotLook.Game
             ISfxService sfx,
             IGameSession session,
             IOverheatService overheat,
+            ItemSelectionPolicy itemSelectionPolicy,
             ComboPopupSpawner comboPopup,
             IGameStateService state,
             IBoardCleaner boardCleaner,
@@ -80,6 +82,7 @@ namespace Piramura.LookOrNotLook.Game
             this.sfx = sfx;
             this.session = session;
             this.overheat = overheat;
+            this.itemSelectionPolicy = itemSelectionPolicy;
             this.comboPopup = comboPopup;
             this.state = state;
             this.boardCleaner = boardCleaner;
@@ -448,7 +451,7 @@ namespace Piramura.LookOrNotLook.Game
         private bool TrySpawnAt(int index)
         {
             if (!freeIndices.Contains(index)) return false;
-            var def = SelectDefinitionWithOverheat();
+            var def = itemSelectionPolicy.Select(config.ItemPool);
             if (def == null) return false;
             var go = itemSpawner.SpawnAt(index, def.Prefab);
 
@@ -460,43 +463,6 @@ namespace Piramura.LookOrNotLook.Game
 
             return true;
         }
-        private ItemDefinition SelectDefinitionWithOverheat()
-        {
-            if (config.ItemPool == null || config.ItemPool.Length == 0) return null;
-
-            var def = config.ItemPool[UnityEngine.Random.Range(0, config.ItemPool.Length)];
-
-            // Overheat: comboに応じてForbiddenを強制する
-            float p = overheat != null ? overheat.ForbiddenChance01 : 0f;
-            bool forceForbidden = UnityEngine.Random.value < p;
-            if (forceForbidden)
-            {
-                ItemDefinition picked = null;
-                int count = 0;
-
-                for (int i = 0; i < config.ItemPool.Length; i++)
-                {
-                    var d = config.ItemPool[i];
-                    if (d != null && d.IsForbidden)
-                    {
-                        count++;
-                        // reservoir sampling（1パスで等確率に1つ選ぶ）
-                        if (UnityEngine.Random.Range(0, count) == 0)
-                            picked = d;
-                    }
-                }
-
-                // Forbiddenが無ければ通常へフォールバック（現状仕様）
-                def = picked;
-            }
-
-            // nullだった場合は通常抽選へフォールバック（現状仕様）
-            if (def == null)
-                def = config.ItemPool[UnityEngine.Random.Range(0, config.ItemPool.Length)];
-
-            return def;
-        }
-
 
         private void RefreshAround(int centerIndex)
         {

@@ -66,6 +66,7 @@ namespace Piramura.LookOrNotLook.Composition
                 .As<Piramura.LookOrNotLook.Item.IBoardCleaner>();
 
             builder.RegisterComponentInHierarchy<Piramura.LookOrNotLook.Game.BoardPlacerToPlayer>();
+            builder.Register<ItemSelectionPolicy>(Lifetime.Singleton);
 
             // ---- EntryPoints (Tick順が超重要) ----
             // 1) Timer（最初に時間を確定させる）
