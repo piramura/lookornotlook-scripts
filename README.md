@@ -75,10 +75,7 @@ lookornotlook-scripts/
 ├── Game/                       # ゲーム進行のオーケストレーション
 │   ├── GameLoop.cs             # メインのゲームループ（IStartable, ITickable）
 │   ├── GameManager.cs          # 設定値コンテナ（ItemPool, RefreshRadius等）
-│   ├── GameController.cs       # IGameActions の実装
 │   ├── GameInputCoordinator.cs # フェーズ別の入力ルーティング
-│   ├── GazeCollectCoordinator.cs  # public 側 GameLifetimeScope では未配線
-│   ├── IGameActions.cs
 │   ├── BoardPlacerToPlayer.cs  # プレイヤーに向けてボードを配置
 │   ├── ResultFlow.cs           # リザルト画面の遷移フロー
 │   ├── TimeUpSfxCoordinator.cs # タイムアップ時のSE制御

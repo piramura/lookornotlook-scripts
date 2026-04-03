@@ -114,8 +114,6 @@ Presentation → GameFlow → Logic → Input → Infrastructure
 | `FocusTracker` | フォーカスキャッシュと変化検知 | △（MonoBehaviour依存あり） |
 | `GamePhaseController` | フェーズ遷移メソッド群 | △ |
 
-> `Game/GazeCollectCoordinator.cs` は public 側 `GameLifetimeScope` では未配線。private 側 Scope の有無は確認不可。
-
 ---
 
 ## テスト基盤の方針

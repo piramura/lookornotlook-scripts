@@ -50,9 +50,6 @@ Inputは視線の生データを提供するだけで、Focus/進行/判定はGa
 ### GameLoop.cs の責務集中
 `Game/GameLoop.cs` はボード状態管理・フォーカスキャッシュ・アイテム選択・フェーズ遷移・取得後処理を一手に担っており、上記のレイヤー方針から逸脱している。段階的な責務分離を予定している。分離方針の詳細は `CLAUDE.md` を参照。
 
-### GazeCollectCoordinator.cs の位置づけ
-`Game/GazeCollectCoordinator.cs` は public 側の `GameLifetimeScope` に登録されていない。private 側の別 Scope で使われているかは確認不可。将来の CollectCoordinator 分離リファクタ時の参考として残置している。
-
 ### SeeingLogic.cs のレイヤー配置
 `Logic/SeeingLogic.cs` は `Logic/` フォルダに配置されているが、`GazeManager` のイベントを購読する `MonoBehaviour` であり、厳密には Input に近い。移動するかどうかは要検討。
 
