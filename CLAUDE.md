@@ -91,28 +91,25 @@ Presentation → GameFlow → Logic → Input → Infrastructure
 
 ---
 
-## GameLoop の現状と責務分離方針
+## GameLoop の責務分離（完了）
 
-`Game/GameLoop.cs` は現在 `IStartable + ITickable` を実装し、以下の責務を一身に担っている（既知の技術負債）:
+`Game/GameLoop.cs` はかつて収集フロー・フォーカス・フェーズ遷移・後処理を一身に担っていた（技術負債）。
+段階的な抽出を経て、現在の `GameLoop` の責務は以下のみ:
 
-1. フォーカスキャッシュ（`currentProgress`, `currentCollectable`, `currentReaction`）
-2. フェーズ遷移エントリポイント（`StartGameFromTitle`, `RetryFromResult`, `EnterResult`, `GoTitleFromResult`）
-3. 取得後処理の調停（演出 → スコア確定 → 後処理）
-4. dwell 進行速度の調整
+- `Tick()` — フェーズゲート / タイムアップ検知 / `focusTracker.Tick()` 呼び出し / `collectFlow.ExecuteAsync()` 起動
+- フェーズ遷移ファサード — `StartGameFromTitle`, `RetryFromResult`, `DebugResetToPlaying`, `GoTitleFromResult`
 
-2026-04-03 時点で、以下は `GameLoop` から抽出済み:
+**ctor 依存（5つ）:** `GamePhaseController` / `FocusTracker` / `ItemCollectFlow` / `ITimerService` / `IGameStateService`
 
-- `ItemSelectionPolicy`: `SelectDefinitionWithOverheat`
-- `BoardSlotManager`: `slotObjects`, `freeIndices`, `RefreshAround` を含む盤面管理
+**GameLoop から抽出済みのクラス:**
 
-**分離候補クラス（このリポジトリ単独で設計・実装可能）:**
-
-| クラス候補 | 責務 | テスト可否 |
-|---|---|---|
-| `ItemSelectionPolicy` | 抽出済み（Overheat 込みアイテム選択） | ○ |
-| `BoardSlotManager` | 抽出済み（盤面状態管理） | △（Unity依存あり） |
-| `FocusTracker` | フォーカスキャッシュと変化検知 | △（MonoBehaviour依存あり） |
-| `GamePhaseController` | フェーズ遷移メソッド群 | △ |
+| クラス | 責務 |
+|---|---|
+| `ItemSelectionPolicy` | Overheat 込みアイテム選択 |
+| `BoardSlotManager` | 盤面状態管理（スロット・スポーン） |
+| `FocusTracker` | フォーカスキャッシュと変化検知 |
+| `GamePhaseController` | フェーズ遷移シーケンス（Playing / Result / TitleScreen） |
+| `ItemCollectFlow` | 非同期収集フロー（ロック・ガード・演出・確定・後処理） |
 
 ---
 
@@ -138,7 +135,10 @@ Tests/Editor/
 │   ├── AchievementServiceTests.cs
 │   └── OverheatServiceTests.cs
 ├── Game/
-│   └── ItemSelectionPolicyTests.cs
+│   ├── ItemSelectionPolicyTests.cs
+│   └── ItemCollectFlowTests.cs   （Unity依存あり・PlayMode or smoke）
+└── Session/
+    └── GameSessionTests.cs       （作成済み）
 ```
 
 > 現在は runtime asmdef を導入せず、`Tests/Editor/` を `Assembly-CSharp-Editor` に載せて運用する。runtime asmdef 導入は別タスク。
@@ -148,7 +148,7 @@ Tests/Editor/
 
 ## コード規約チェックリスト
 
-以下のルールは**新規・変更コードに適用する**。既存の未適用箇所（`GameLoop.cs:221` の `.Forget()` 等）はリファクタ時に個別対応する。
+以下のルールは**新規・変更コードに適用する**。既存の未適用箇所はリファクタ時に個別対応する。
 
 - [ ] `sealed` をデフォルトにする（MonoBehaviour・interface・abstract を除く）
 - [ ] 非同期メソッドには `CancellationToken token` 引数
