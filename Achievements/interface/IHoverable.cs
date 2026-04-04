@@ -1,5 +1,8 @@
-public interface IHoverable
+namespace Piramura.LookOrNotLook.Achievements
 {
-    void OnHoverEnter();
-    void OnHoverExit();
+    public interface IHoverable
+    {
+        void OnHoverEnter();
+        void OnHoverExit();
+    }
 }
