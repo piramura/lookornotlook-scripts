@@ -117,17 +117,19 @@ Presentation → GameFlow → Logic → Input → Infrastructure
 
 純C#サービスは NUnit + Unity Test Framework (EditMode) でテスト可能。
 
-**対象サービス（優先度順）:**
+**作成済みテスト:**
 
-| サービス | テスト対象の例 |
-|---|---|
-| `Logic/ScoreService.cs` | `Add`, `Reset`, `Changed` イベント |
-| `Logic/AchievementService.cs` | 称号判定の境界値 |
-| `Game/Overheat/OverheatService.cs` | コンボ計算、`ForbiddenChance01` の上下限 |
-| `Session/GameSession.cs` | `BeginNewSession` / `Version` インクリメント |
-| `ItemSelectionPolicy`（分離後） | Overheat 確率ロジック |
+| テストファイル | 対象 | テスト対象の例 |
+|---|---|---|
+| `Logic/ScoreServiceTests.cs` | `ScoreService` | `Add`, `Reset`, `Changed` イベント |
+| `Logic/AchievementServiceTests.cs` | `AchievementService` | 称号判定の境界値 |
+| `Logic/OverheatServiceTests.cs` | `OverheatService` | コンボ計算、`ForbiddenChance01` の上下限 |
+| `Session/GameSessionTests.cs` | `GameSession` | `BeginNewSession` / `Version` インクリメント |
+| `Game/ItemSelectionPolicyTests.cs` | `ItemSelectionPolicy` | Overheat 確率ロジック |
+| `Game/CollectGuardTests.cs` | `CollectGuard` | finished / token / timer.IsTimeUp / session.Version の4ガード条件 |
+| `Game/ItemCollectFlowTests.cs` | `ItemCollectFlow.PostCommit` | score / achievement / sfx / overheat / comboPopup の副作用分岐 |
 
-**テスト配置予定:**
+**テスト配置（現状）:**
 ```
 Tests/Editor/
 ├── Logic/
@@ -136,10 +138,19 @@ Tests/Editor/
 │   └── OverheatServiceTests.cs
 ├── Game/
 │   ├── ItemSelectionPolicyTests.cs
-│   └── ItemCollectFlowTests.cs   （Unity依存あり・PlayMode or smoke）
+│   ├── CollectGuardTests.cs
+│   └── ItemCollectFlowTests.cs
 └── Session/
-    └── GameSessionTests.cs       （作成済み）
+    └── GameSessionTests.cs
 ```
+
+**`internal` メンバーのテスト方法:**
+`AssemblyInfo.cs`（`Scripts/` 直下）に `[assembly: InternalsVisibleTo("Assembly-CSharp-Editor")]` を追加済み。
+`internal static` なロジック（`CollectGuard.IsValid` 等）と `internal` なメソッド（`ItemCollectFlow.PostCommit` 等）は EditMode テストから直接呼べる。
+
+**EditMode テストの限界と PlayMode 境界:**
+- `ExecuteAsync` 全体（`GameObject` + `GetComponent` 依存）は PlayMode テスト対象
+- `comboPopup` ビジュアル・`ItemReaction` アニメーションは private 側 smoke で確認
 
 > 現在は runtime asmdef を導入せず、`Tests/Editor/` を `Assembly-CSharp-Editor` に載せて運用する。runtime asmdef 導入は別タスク。
 > Unity Test Framework パッケージの有効化と Test Runner 実行確認は親リポジトリ側で行う。

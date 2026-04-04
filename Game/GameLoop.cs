@@ -49,6 +49,7 @@ namespace Piramura.LookOrNotLook.Game
             if (finished) return;
 
             var completed = focusTracker.Tick(UnityEngine.Time.deltaTime);
+            // Forget: 収集フローはフレームティックと独立して非同期並走させる。ロックと CancellationToken でセッション安全を担保済み
             if (completed != null) collectFlow.ExecuteAsync(completed, () => finished).Forget();
         }
 
