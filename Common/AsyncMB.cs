@@ -2,7 +2,7 @@ using UnityEngine;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 
-namespace Piramura.Common
+namespace Piramura.LookOrNotLook.Common
 {
     public abstract class AsyncMB : MonoBehaviour
     {

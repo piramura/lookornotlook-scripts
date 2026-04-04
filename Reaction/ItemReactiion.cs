@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 using Piramura.LookOrNotLook.UI;
-using Piramura.Common;
+using Piramura.LookOrNotLook.Common;
 using Cysharp.Threading.Tasks;
 using System.Threading;
 
