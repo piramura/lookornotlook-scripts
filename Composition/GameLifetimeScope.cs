@@ -1,5 +1,6 @@
 using Piramura.LookOrNotLook.Game;
 using Piramura.LookOrNotLook.Gaze;
+using Piramura.LookOrNotLook.Session;
 using Piramura.LookOrNotLook.Logic;
 using Piramura.LookOrNotLook.Item;
 using Piramura.LookOrNotLook.Game.Timer;

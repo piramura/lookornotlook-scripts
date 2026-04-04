@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using System.Threading;
+using Piramura.LookOrNotLook.Session;
 
 namespace Piramura.LookOrNotLook.Tests.Session
 {

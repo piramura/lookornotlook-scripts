@@ -1,5 +1,6 @@
 using UnityEngine;
 using Piramura.LookOrNotLook.Game.Timer;
+using Piramura.LookOrNotLook.Session;
 
 namespace Piramura.LookOrNotLook.Audio
 {

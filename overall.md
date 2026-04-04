@@ -43,7 +43,7 @@ Inputは視線の生データを提供するだけで、Focus/進行/判定はGa
 - 次にDomainを付ける
 - 必要な場合のみLayerを付与する
 - フォルダ構造と完全一致はさせない（移動時のnamespace変更を最小化）
-- 既知の例外: `Session/GameSession.cs` は namespace なし、`Common/AsyncMB.cs` は `Piramura.Common`（新規ファイルは目標ルールに従う）
+- 既知の例外: なし（全ファイルが目標ルールに準拠済み）
 
 ## 実装と方針の乖離メモ（既知の技術負債）
 
@@ -53,5 +53,3 @@ Inputは視線の生データを提供するだけで、Focus/進行/判定はGa
 ### SeeingLogic.cs のレイヤー配置
 `Logic/SeeingLogic.cs` は `Logic/` フォルダに配置されているが、`GazeManager` のイベントを購読する `MonoBehaviour` であり、厳密には Input に近い。移動するかどうかは要検討。
 
-### GameSession.cs の Namespace
-`Session/GameSession.cs` は他のファイルと異なり namespace が付与されていない。将来的には `Piramura.LookOrNotLook.Session` に統一予定。
