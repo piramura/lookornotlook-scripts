@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace Piramura.LookOrNotLook.UI
 {
-    public sealed class ComboPopupSpawner : MonoBehaviour
+    public sealed class ComboPopupSpawner : MonoBehaviour, IComboPopupSpawner
     {
         [SerializeField] private ComboPopup popupPrefab;
         [SerializeField] private Vector3 offset = new(0f, 0.15f, 0f);

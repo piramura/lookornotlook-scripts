@@ -27,7 +27,7 @@ namespace Piramura.LookOrNotLook.Game
         private readonly IGameSession session;
         private readonly IOverheatService overheat;
         private readonly BoardSlotManager boardSlotManager;
-        private readonly ComboPopupSpawner comboPopup;
+        private readonly IComboPopupSpawner comboPopup;
 
         private readonly SemaphoreSlim collectLock = new(1, 1);
         private CancellationToken GameToken => session.Token;
@@ -41,7 +41,7 @@ namespace Piramura.LookOrNotLook.Game
             IGameSession session,
             IOverheatService overheat,
             BoardSlotManager boardSlotManager,
-            ComboPopupSpawner comboPopup)
+            IComboPopupSpawner comboPopup)
         {
             this.focusTracker = focusTracker;
             this.timer = timer;
@@ -78,7 +78,7 @@ namespace Piramura.LookOrNotLook.Game
                 lockAcquired = true;
 
                 // ガード（1回目）
-                if (!IsCollectStillValid(token, ver, isFinished)) return;
+                if (!CollectGuard.IsValid(token, ver, isFinished, timer, session)) return;
 
                 // "確定へ進む意思"があるのでインタラクション無効化
                 DisableInteractivity(gazeTarget, cols, ref interactivityDisabled);
@@ -87,7 +87,7 @@ namespace Piramura.LookOrNotLook.Game
                 await PlayCompletionReactionAsync(item, token);
 
                 // ガード（2回目）
-                if (!IsCollectStillValid(token, ver, isFinished)) return;
+                if (!CollectGuard.IsValid(token, ver, isFinished, timer, session)) return;
 
                 // 確定
                 if (!TryCommitCollect(item, out int centerIndex, out ItemDefinition def, out int delta, out bool isPenalty))
@@ -97,7 +97,7 @@ namespace Piramura.LookOrNotLook.Game
                 PostCommit(def, delta, isPenalty, item.transform.position);
 
                 // ガード（3回目）
-                if (!IsCollectStillValid(token, ver, isFinished)) return;
+                if (!CollectGuard.IsValid(token, ver, isFinished, timer, session)) return;
 
                 boardSlotManager.SpawnAt(centerIndex);
 
@@ -123,15 +123,6 @@ namespace Piramura.LookOrNotLook.Game
                     collectLock.Release();
                 }
             }
-        }
-
-        private bool IsCollectStillValid(CancellationToken token, int ver, Func<bool> isFinished)
-        {
-            if (isFinished()) return false;
-            if (token.IsCancellationRequested) return false;
-            if (timer != null && timer.IsTimeUp) return false;
-            if (ver != session.Version) return false;
-            return true;
         }
 
         private static async UniTask PlayCompletionReactionAsync(GameObject item, CancellationToken token)
@@ -180,7 +171,7 @@ namespace Piramura.LookOrNotLook.Game
             return true;
         }
 
-        private void PostCommit(ItemDefinition def, int delta, bool isPenalty, Vector3 pos)
+        internal void PostCommit(ItemDefinition def, int delta, bool isPenalty, Vector3 pos)
         {
             if (def != null)
             {

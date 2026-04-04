@@ -60,7 +60,7 @@ namespace Piramura.LookOrNotLook.Composition
                 .WithParameter<AudioClip>(r => r.Resolve<SfxSource>().Config.timeUp)
                 .WithParameter<AudioClip>(r => r.Resolve<SfxSource>().Config.result);
 
-            builder.RegisterComponentInHierarchy<ComboPopupSpawner>();
+            builder.RegisterComponentInHierarchy<ComboPopupSpawner>().AsSelf().As<IComboPopupSpawner>();
             //builder.RegisterComponentInHierarchy<Piramura.LookOrNotLook.Gaze.GazeRayVisualizer>();
             builder.RegisterComponentInHierarchy<GazeReticleSdfView>();
             builder.RegisterComponentInHierarchy<Piramura.LookOrNotLook.Item.BoardCleaner>()
