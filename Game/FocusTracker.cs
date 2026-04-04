@@ -118,7 +118,7 @@ namespace Piramura.LookOrNotLook.Game
         }
 
         // コンボに応じた dwell 速度倍率を計算する（純C#）
-        private static float GetDwellSpeedMultiplier(int combo)
+        internal static float GetDwellSpeedMultiplier(int combo)
         {
             const float baseDwell = 1.20f;
             const float minDwell  = 0.35f;
