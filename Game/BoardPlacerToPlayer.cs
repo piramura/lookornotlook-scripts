@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace Piramura.LookOrNotLook.Game
 {
-    public sealed class BoardPlacerToPlayer : MonoBehaviour
+    public sealed class BoardPlacerToPlayer : MonoBehaviour, IBoardPlacerToPlayer
     {
         [Header("Refs")]
         [SerializeField] private OVRCameraRig rig;

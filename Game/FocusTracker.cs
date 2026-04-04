@@ -11,7 +11,7 @@ namespace Piramura.LookOrNotLook.Game
     /// ポーリングベースで SeeingLogic.ActiveTarget を監視し、
     /// アイテムの進行・完了を制御する。
     /// </summary>
-    public sealed class FocusTracker
+    public sealed class FocusTracker : IFocusTracker
     {
         private readonly SeeingLogic seeingLogic;
         private readonly IOverheatService overheat;

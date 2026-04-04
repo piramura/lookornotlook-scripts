@@ -6,7 +6,7 @@ using Random = UnityEngine.Random;
 
 namespace Piramura.LookOrNotLook.Game
 {
-    public sealed class BoardSlotManager
+    public sealed class BoardSlotManager : IBoardSlotManager
     {
         private readonly ItemSpawner spawner;
         private readonly ItemLayout layout;

@@ -21,10 +21,10 @@ namespace Piramura.LookOrNotLook.Game
         private readonly IScoreService score;
         private readonly IAchievementService achievement;
         private readonly IOverheatService overheat;
-        private readonly BoardSlotManager boardSlotManager;
+        private readonly IBoardSlotManager boardSlotManager;
         private readonly IBoardCleaner boardCleaner;
-        private readonly BoardPlacerToPlayer boardPlacerToPlayer;
-        private readonly FocusTracker focusTracker;
+        private readonly IBoardPlacerToPlayer boardPlacerToPlayer;
+        private readonly IFocusTracker focusTracker;
 
         public GamePhaseController(
             IGameSession session,
@@ -33,10 +33,10 @@ namespace Piramura.LookOrNotLook.Game
             IScoreService score,
             IAchievementService achievement,
             IOverheatService overheat,
-            BoardSlotManager boardSlotManager,
+            IBoardSlotManager boardSlotManager,
             IBoardCleaner boardCleaner,
-            BoardPlacerToPlayer boardPlacerToPlayer,
-            FocusTracker focusTracker)
+            IBoardPlacerToPlayer boardPlacerToPlayer,
+            IFocusTracker focusTracker)
         {
             this.session = session;
             this.state = state;

@@ -66,10 +66,11 @@ namespace Piramura.LookOrNotLook.Composition
             builder.RegisterComponentInHierarchy<Piramura.LookOrNotLook.Item.BoardCleaner>()
                 .As<Piramura.LookOrNotLook.Item.IBoardCleaner>();
 
-            builder.RegisterComponentInHierarchy<Piramura.LookOrNotLook.Game.BoardPlacerToPlayer>();
+            builder.RegisterComponentInHierarchy<Piramura.LookOrNotLook.Game.BoardPlacerToPlayer>()
+                .AsSelf().As<IBoardPlacerToPlayer>();
             builder.Register<ItemSelectionPolicy>(Lifetime.Singleton);
-            builder.Register<BoardSlotManager>(Lifetime.Singleton);
-            builder.Register<FocusTracker>(Lifetime.Singleton);
+            builder.Register<BoardSlotManager>(Lifetime.Singleton).As<IBoardSlotManager>();
+            builder.Register<FocusTracker>(Lifetime.Singleton).As<IFocusTracker>();
             builder.Register<ItemCollectFlow>(Lifetime.Singleton);
 
             // ---- EntryPoints (Tick順が超重要) ----

@@ -19,28 +19,28 @@ namespace Piramura.LookOrNotLook.Game
     /// </summary>
     public sealed class ItemCollectFlow
     {
-        private readonly FocusTracker focusTracker;
+        private readonly IFocusTracker focusTracker;
         private readonly ITimerService timer;
         private readonly IScoreService score;
         private readonly IAchievementService achievement;
         private readonly ISfxService sfx;
         private readonly IGameSession session;
         private readonly IOverheatService overheat;
-        private readonly BoardSlotManager boardSlotManager;
+        private readonly IBoardSlotManager boardSlotManager;
         private readonly IComboPopupSpawner comboPopup;
 
         private readonly SemaphoreSlim collectLock = new(1, 1);
         private CancellationToken GameToken => session.Token;
 
         public ItemCollectFlow(
-            FocusTracker focusTracker,
+            IFocusTracker focusTracker,
             ITimerService timer,
             IScoreService score,
             IAchievementService achievement,
             ISfxService sfx,
             IGameSession session,
             IOverheatService overheat,
-            BoardSlotManager boardSlotManager,
+            IBoardSlotManager boardSlotManager,
             IComboPopupSpawner comboPopup)
         {
             this.focusTracker = focusTracker;
