@@ -54,6 +54,8 @@ Inputは視線の生データを提供するだけで、Focus/進行/判定はGa
 
 残る責務は Tick ゲートとフェーズ遷移ファサード呼び出しのみ。詳細は `CLAUDE.md` を参照。
 
-### SeeingLogic.cs のレイヤー配置
-`Logic/SeeingLogic.cs` は `Logic/` フォルダに配置されているが、`GazeManager` のイベントを購読する `MonoBehaviour` であり、厳密には Input に近い。移動するかどうかは要検討。
+### SeeingLogic.cs のレイヤー配置（解消済み）
+`SeeingLogic` は `GazeManager` のイベントを購読する `MonoBehaviour` であり、`Logic/` への配置は層定義違反だった。
+private 側 Unity Editor で `Gaze/SeeingLogic.cs` へ移動済み（GUID 保持）。namespace も `Piramura.LookOrNotLook.Gaze` に統一。
+`Logic/` には純C#サービス（ScoreService / AchievementService）のみ残る。
 

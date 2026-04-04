@@ -1,7 +1,6 @@
 using UnityEngine;
-using Piramura.LookOrNotLook.Gaze;
 using VContainer;
-namespace Piramura.LookOrNotLook.Logic
+namespace Piramura.LookOrNotLook.Gaze
 {
     /// <summary>
     /// 視線イベントを受け取り、

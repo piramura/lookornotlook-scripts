@@ -1,5 +1,5 @@
 using UnityEngine;
-using Piramura.LookOrNotLook.Logic;
+using Piramura.LookOrNotLook.Gaze;
 using Piramura.LookOrNotLook.Item;
 using System.Collections.Generic;
 using Piramura.LookOrNotLook.Reaction;

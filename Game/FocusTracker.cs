@@ -1,6 +1,6 @@
 using Piramura.LookOrNotLook.Game.Overheat;
 using Piramura.LookOrNotLook.Item;
-using Piramura.LookOrNotLook.Logic;
+using Piramura.LookOrNotLook.Gaze;
 using Piramura.LookOrNotLook.Reaction;
 using UnityEngine;
 

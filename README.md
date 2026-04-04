@@ -96,7 +96,8 @@ lookornotlook-scripts/
 │   ├── GazeManager.cs          # レイキャスト + 注視検出
 │   ├── GazeRayVisualizer.cs
 │   ├── GazeReticleSdfView.cs
-│   └── GazeTarget.cs
+│   ├── GazeTarget.cs
+│   └── SeeingLogic.cs          # dwell/ミスマッチ判定（MonoBehaviour）
 │
 ├── Item/                       # 収集アイテムシステム
 │   ├── BoardCleaner.cs
@@ -108,12 +109,11 @@ lookornotlook-scripts/
 │   ├── ItemSlot.cs
 │   └── ItemSpawner.cs
 │
-├── Logic/                      # ゲームルール・スコア・実績判定
+├── Logic/                      # ゲームルール・スコア・実績判定（純C#）
 │   ├── IAchievementService.cs
 │   ├── AchievementService.cs   # 純C#（テスト可）
 │   ├── IScoreService.cs
-│   ├── ScoreService.cs         # 純C#（テスト可）
-│   └── SeeingLogic.cs          # 注視判定（MonoBehaviour。フォルダ方針とは乖離あり）
+│   └── ScoreService.cs         # 純C#（テスト可）
 │
 ├── Reaction/                   # アイテム取得時のビジュアル反応
 │   └── ItemReactiion.cs
