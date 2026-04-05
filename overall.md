@@ -50,8 +50,9 @@ Inputは視線の生データを提供するだけで、Focus/進行/判定はGa
 ### GameLoop.cs の責務集中（解消済み）
 `Game/GameLoop.cs` はかつてボード状態管理・フォーカスキャッシュ・アイテム選択・フェーズ遷移・取得後処理を一身に担っていた。
 段階的な責務分離を経て、現在の依存は 5 つに整理済み:
-`GamePhaseController` / `FocusTracker` / `ItemCollectFlow` / `ITimerService` / `IGameStateService`
+`IGamePhaseController` / `IFocusTracker` / `IItemCollectFlow` / `ITimerService` / `IGameStateService`
 
+全依存が interface 経由になり、`GameLoop` / `GamePhaseController` の EditMode テストが可能になった（`GameLoopTests` / `GamePhaseControllerTests` として実装済み）。
 残る責務は Tick ゲートとフェーズ遷移ファサード呼び出しのみ。詳細は `CLAUDE.md` を参照。
 
 ### SeeingLogic.cs のレイヤー配置（解消済み）

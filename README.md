@@ -73,17 +73,27 @@ lookornotlook-scripts/
 │   └── GazeDebugView.cs
 │
 ├── Game/                       # ゲーム進行のオーケストレーション
-│   ├── GameLoop.cs             # メインのゲームループ（IStartable, ITickable）
+│   ├── GameLoop.cs             # フレームティック処理とフェーズ遷移ファサード（ITickable）
 │   ├── GameManager.cs          # 設定値コンテナ（ItemPool, RefreshRadius等）
 │   ├── GameInputCoordinator.cs # フェーズ別の入力ルーティング
-│   ├── BoardPlacerToPlayer.cs  # プレイヤーに向けてボードを配置
+│   ├── GamePhaseController.cs  # フェーズ遷移シーケンス（IStartable, IGamePhaseController）
+│   ├── IGamePhaseController.cs # フェーズ遷移 interface
+│   ├── ItemCollectFlow.cs      # 非同期収集フロー（ロック・ガード・演出・確定）
+│   ├── IItemCollectFlow.cs     # 収集フロー interface
+│   ├── FocusTracker.cs         # フォーカスキャッシュと変化検知（IFocusTracker）
+│   ├── IFocusTracker.cs        # フォーカス追跡 interface
+│   ├── CollectGuard.cs         # 収集確定前の安全ガード（static internal）
+│   ├── BoardSlotManager.cs     # 盤面スロット管理（IBoardSlotManager）
+│   ├── IBoardSlotManager.cs    # スロット管理 interface
+│   ├── BoardPlacerToPlayer.cs  # プレイヤーに向けてボードを配置（IBoardPlacerToPlayer）
+│   ├── IBoardPlacerToPlayer.cs # ボード配置 interface
+│   ├── ItemSelectionPolicy.cs  # Overheat 込みアイテム選択ロジック
 │   ├── ResultFlow.cs           # リザルト画面の遷移フロー
 │   ├── TimeUpSfxCoordinator.cs # タイムアップ時のSE制御
 │   ├── State/                  # ゲームフェーズ状態管理
 │   │   ├── GamePhase.cs
 │   │   ├── IGameStateService.cs
-│   │   ├── GameStateService.cs
-│   │   └── TimeUpResultCoordinator.cs
+│   │   └── GameStateService.cs
 │   ├── Timer/                  # ゲームタイマー
 │   │   ├── ITimerService.cs
 │   │   └── TimerService.cs
@@ -100,7 +110,7 @@ lookornotlook-scripts/
 │   └── SeeingLogic.cs          # dwell/ミスマッチ判定（MonoBehaviour）
 │
 ├── Item/                       # 収集アイテムシステム
-│   ├── BoardCleaner.cs
+│   ├── BoardCleaner.cs         # スポーン済みアイテム全削除（IBoardCleaner を同ファイルで定義）
 │   ├── CollectableItem.cs
 │   ├── ItemCategory.cs
 │   ├── ItemDefinition.cs       # ScriptableObject：アイテム設定値
@@ -125,6 +135,13 @@ lookornotlook-scripts/
 │
 ├── Session/                    # 非同期キャンセルのライフタイム管理
 │   └── GameSession.cs
+│
+├── Tests/                      # EditMode テスト（NUnit + Unity Test Framework）
+│   └── Editor/
+│       ├── Logic/              # ScoreService / AchievementService / OverheatService
+│       ├── Game/               # ItemSelectionPolicy / CollectGuard / ItemCollectFlow
+│       │                       # FocusTracker / GamePhaseController / GameLoop
+│       └── Session/            # GameSession
 │
 └── UI/                         # MVP パターンによる UI 層
     ├── Achievement/
