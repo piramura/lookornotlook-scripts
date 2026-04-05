@@ -13,7 +13,7 @@ namespace Piramura.LookOrNotLook.Game
     /// フェーズ遷移シーケンス（Playing / Result / TitleScreen）を担当する。
     /// GameLoop.Tick() のフレーム処理とは独立した「状態遷移オーケストレーター」。
     /// </summary>
-    public sealed class GamePhaseController : IStartable
+    public sealed class GamePhaseController : IStartable, IGamePhaseController
     {
         private readonly IGameSession session;
         private readonly IGameStateService state;

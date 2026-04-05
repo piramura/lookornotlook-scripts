@@ -17,7 +17,7 @@ namespace Piramura.LookOrNotLook.Game
     /// アイテム収集の非同期フロー（ロック・ガード・演出・確定・後処理）を担当する。
     /// finished フラグは呼び出し元（GameLoop）が Func&lt;bool&gt; として渡す。
     /// </summary>
-    public sealed class ItemCollectFlow
+    public sealed class ItemCollectFlow : IItemCollectFlow
     {
         private readonly IFocusTracker focusTracker;
         private readonly ITimerService timer;

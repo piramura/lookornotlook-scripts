@@ -71,7 +71,7 @@ namespace Piramura.LookOrNotLook.Composition
             builder.Register<ItemSelectionPolicy>(Lifetime.Singleton);
             builder.Register<BoardSlotManager>(Lifetime.Singleton).As<IBoardSlotManager>();
             builder.Register<FocusTracker>(Lifetime.Singleton).As<IFocusTracker>();
-            builder.Register<ItemCollectFlow>(Lifetime.Singleton);
+            builder.Register<ItemCollectFlow>(Lifetime.Singleton).As<IItemCollectFlow>();
 
             // ---- EntryPoints (Tick順が超重要) ----
             // 1) Timer（最初に時間を確定させる）
@@ -83,7 +83,7 @@ namespace Piramura.LookOrNotLook.Composition
             builder.RegisterEntryPoint<TimeUpSfxCoordinator>(Lifetime.Singleton);
 
             // 3) フェーズ遷移（IStartable のみ。Tick には参加しない）
-            builder.RegisterEntryPoint<GamePhaseController>(Lifetime.Singleton).AsSelf();
+            builder.RegisterEntryPoint<GamePhaseController>(Lifetime.Singleton).AsSelf().As<IGamePhaseController>();
 
             // 4) Game進行（Timerの後に回る）
             // GameLoop（UIから注入するなら AsSelf 必須）

@@ -11,9 +11,9 @@ namespace Piramura.LookOrNotLook.Game
     /// </summary>
     public sealed class GameLoop : ITickable
     {
-        private readonly GamePhaseController controller;
+        private readonly IGamePhaseController controller;
         private readonly IFocusTracker focusTracker;
-        private readonly ItemCollectFlow collectFlow;
+        private readonly IItemCollectFlow collectFlow;
         private readonly ITimerService timer;
         private readonly IGameStateService state;
 
@@ -22,9 +22,9 @@ namespace Piramura.LookOrNotLook.Game
         private bool finished = true;
 
         public GameLoop(
-            GamePhaseController controller,
+            IGamePhaseController controller,
             IFocusTracker focusTracker,
-            ItemCollectFlow collectFlow,
+            IItemCollectFlow collectFlow,
             ITimerService timer,
             IGameStateService state)
         {
