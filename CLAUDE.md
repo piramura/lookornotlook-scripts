@@ -137,6 +137,7 @@ Presentation → GameFlow → Logic → Input → Infrastructure
 | `Game/FocusTrackerTests.cs` | `FocusTracker.GetDwellSpeedMultiplier` | dwell 速度倍率の計算・上下限 |
 | `Game/GamePhaseControllerTests.cs` | `GamePhaseController` | 各フェーズ遷移のシーケンスと呼び出し順 |
 | `Game/GameLoopTests.cs` | `GameLoop` | フェーズゲート / タイムアップ / finished ガード / ファサード委譲 |
+| `Game/GameStateServiceTests.cs` | `GameStateService` | 初期フェーズ / SetPhase / 重複フェーズガード / Changed イベント発火 |
 
 **テスト配置（現状）:**
 ```
@@ -151,7 +152,8 @@ Tests/Editor/
 │   ├── ItemCollectFlowTests.cs
 │   ├── FocusTrackerTests.cs
 │   ├── GamePhaseControllerTests.cs
-│   └── GameLoopTests.cs
+│   ├── GameLoopTests.cs
+│   └── GameStateServiceTests.cs
 └── Session/
     └── GameSessionTests.cs
 ```
