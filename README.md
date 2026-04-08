@@ -141,6 +141,8 @@ lookornotlook-scripts/
 │       ├── Logic/              # ScoreService / AchievementService / OverheatService
 │       ├── Game/               # ItemSelectionPolicy / CollectGuard / ItemCollectFlow
 │       │                       # FocusTracker / GamePhaseController / GameLoop
+│       │                       # GameStateService / TimerService
+│       ├── Save/               # SaveCoordinator
 │       └── Session/            # GameSession
 │
 └── UI/                         # MVP パターンによる UI 層

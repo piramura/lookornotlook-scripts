@@ -138,6 +138,8 @@ Presentation → GameFlow → Logic → Input → Infrastructure
 | `Game/GamePhaseControllerTests.cs` | `GamePhaseController` | 各フェーズ遷移のシーケンスと呼び出し順 |
 | `Game/GameLoopTests.cs` | `GameLoop` | フェーズゲート / タイムアップ / finished ガード / ファサード委譲 |
 | `Game/GameStateServiceTests.cs` | `GameStateService` | 初期フェーズ / SetPhase / 重複フェーズガード / Changed イベント発火 |
+| `Game/TimerServiceTests.cs` | `TimerService` | 時間進行の状態遷移 / `IsTimeUp` / `Reset` / `Start` / `StopAll` |
+| `Save/SaveCoordinatorTests.cs` | `SaveCoordinator` | 初回 / 既存スコア更新 / 称号確定 の保存シーケンス |
 
 **テスト配置（現状）:**
 ```
@@ -153,7 +155,10 @@ Tests/Editor/
 │   ├── FocusTrackerTests.cs
 │   ├── GamePhaseControllerTests.cs
 │   ├── GameLoopTests.cs
-│   └── GameStateServiceTests.cs
+│   ├── GameStateServiceTests.cs
+│   └── TimerServiceTests.cs
+├── Save/
+│   └── SaveCoordinatorTests.cs
 └── Session/
     └── GameSessionTests.cs
 ```
